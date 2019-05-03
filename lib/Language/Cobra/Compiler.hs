@@ -58,12 +58,15 @@ funInstrs n instrs = funEntry n ++ instrs ++ funExit
 
 -- | TBD: insert instructions for setting up stack-frame for `n` local vars
 funEntry :: Int -> [Instruction]
-funEntry n  = error "TBD:funEntry"
+funEntry n  = [IPush (Reg EBP), 
+               IMov (Reg EBP) (Reg ESP),
+               ISub (Reg ESP) (Const (4*n))] 
 
 -- | TBD: cleaning up stack-frame after function finishes
 funExit :: [Instruction]
-funExit   = error "TBD:funExit"
-
+funExit   = [IMov (Reg ESP) (Reg EBP),
+            IPop (Reg EBP),
+            IRet]
 --------------------------------------------------------------------------------
 -- | @countVars e@ returns the maximum stack-size needed to evaluate e,
 --   which is the maximum number of let-binds in scope at any point in e.
@@ -126,7 +129,27 @@ errUnboundVar l x = mkError (printf "Unbound variable %s" x) l
 
 -- | TBD: Implement code for `Prim1` with appropriate type checking
 compilePrim1 :: Tag -> Env -> Prim1 -> IExp -> [Instruction]
-compilePrim1 l env op v = error "TBD:compilePrim1"
+compilePrim1 l env op v = compileEnv env v -- this should put the value in EAX 
+                       ++ instrs
+   where
+    instrs              = case op of
+                            Add1   -> errorChecking ++ [IAdd (Reg EAX) (Const 1)]
+                            Sub1   -> errorChecking ++ [ISub (Reg EAX) (Const 1)]
+                            Print  -> error("TBD")
+                                      --[IPush (Reg EAX),
+                                      --ICall (_PrintLabel_)]
+                            IsNum  -> genCheck ++
+                                      [IJne (DynamicErr (TypeError TNumber))]
+
+                            IsBool -> genCheck ++ 
+                                      [IJe (DynamicErr (TypeError TBoolean))]
+    errorChecking       = genCheck ++
+                          [IJne (DynamicErr (TypeError TNumber))]
+    genCheck            = [IMov (Reg EBX) (Reg EAX),
+                           IAnd (Reg EBX) (HexConst (0x00000001)),
+                           ICmp (Reg EBX) (Const 0)]
+                     
+
 
 -- | TBD: Implement code for `Prim2` with appropriate type checking
 compilePrim2 :: Tag -> Env -> Prim2 -> IExp -> IExp -> [Instruction]

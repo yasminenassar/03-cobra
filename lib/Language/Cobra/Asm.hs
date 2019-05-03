@@ -28,7 +28,14 @@ header = unlines
 -- FILL: insert instructions containing labels and code for jumping to and
 -- calling `error` here.
 postlude :: [Instruction]
-postlude = error "TBD:postlude"
+postlude = [ILabel (DynamicErr (TypeError TNumber)),
+           IPush (Reg EAX),
+           IPush (Const 0),
+           ICall (Builtin "error")]
+        ++ [ILabel (DynamicErr (TypeError TBoolean)),
+           IPush (Reg EAX),
+           IPush (Const 1)
+           ICall (Builtin "error")]
 
 --------------------------------------------------------------------------------
 instrAsm :: Instruction -> Text
