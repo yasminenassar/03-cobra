@@ -32,7 +32,7 @@ anf i (Id     x l)      = (i, Id     x l)
 
 anf i (Let x e b l)     = (i2, Let x e1 e2 l)
   where
-    (i1, e1)            = anf i e 
+    (i1, e1)            = anf i e
     (i2, e2)            = anf i1 b
 
 anf i (Prim1 o e l)     = (i', stitch bs  (Prim1 o ae l))
@@ -41,7 +41,7 @@ anf i (Prim1 o e l)     = (i', stitch bs  (Prim1 o ae l))
 
 anf i (Prim2 o e1 e2 l) = (i'', stitch (bs2++bs1) (Prim2 o v1 v2 l))
   where
-    (i', bs1, v1) = imm i e1
+    (i', bs1, v1)  = imm i e1
     (i'', bs2, v2) = imm i' e2
 
 anf i (If c e1 e2 l)    = (i''', stitch bs  (If c' e1' e2' l))
@@ -84,11 +84,11 @@ imms i (e:es)       = (i'', bs' ++ bs, e' : es' )
 --------------------------------------------------------------------------------
 imm :: Int -> Expr a -> (Int, Binds a, ImmExpr a)
 --------------------------------------------------------------------------------
-imm i (Number n l)      = (i, [], Number n l) 
+imm i (Number n l)      = (i, [], Number n l)
 
-imm i (Id x l)          = (i, [], Id x l) 
+imm i (Id x l)          = (i, [], Id x l)
 
-imm i (Boolean b  l)    = (i, [], Boolean b l) 
+imm i (Boolean b  l)    = (i, [], Boolean b l)
 
 
 imm i (Prim1 o e1 l)    = (i'', bs, mkId v l)
@@ -97,12 +97,12 @@ imm i (Prim1 o e1 l)    = (i'', bs, mkId v l)
     (i'', v)            = fresh l i'
     bs                  = (v, (Prim1 o v1 l, l)) : b1s
 
-imm i (Prim2 o e1 e2 l) = (i''', (newBind, (Prim2 o v1 v2 l,l)):bs2++bs1,
-                          mkId newBind l)
+imm i (Prim2 o e1 e2 l) = (i''', (newBind, (Prim2 o v1 v2 l, l)):bs2++bs1, 
+                           mkId newBind l)
   where
     (i', bs1, v1)       = imm i e1
     (i'', bs2, v2)      = imm i' e2
-    (i''', newBind)     = fresh l i''
+    (i''', newBind)     = fresh l i''  
 
 imm i e@(If _ _ _  l)   = immExp i e l
 

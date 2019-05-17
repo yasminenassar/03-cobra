@@ -133,32 +133,123 @@ compilePrim1 l env op v = compileEnv env v -- this should put the value in EAX
                        ++ instrs
    where
     instrs              = case op of
-                            Add1   -> errorChecking ++ [IAdd (Reg EAX) (Const 1)]
-                            Sub1   -> errorChecking ++ [ISub (Reg EAX) (Const 1)]
-                            Print  -> error("TBD")
-                                      --[IPush (Reg EAX),
-                                      --ICall (_PrintLabel_)]
+                            Add1   -> errorChecking ++ [IAdd (Reg EAX) (Const 2),
+                                                        IJo (DynamicErr (ArithOverflow))]
+                            Sub1   -> errorChecking ++ [ISub (Reg EAX) (Const 2),
+                                                        IJo (DynamicErr (ArithOverflow))]
+                            Print  -> [IPush (Reg EAX),
+                                       ICall (Builtin ("print"))]
                             IsNum  -> genCheck ++
-                                      [IJne (DynamicErr (TypeError TNumber))]
-
+                                      [IJe (BranchTrue tag),
+                                       IMov (Reg EAX) (HexConst 0x7fffffff),
+                                       IJmp (BranchDone tag),
+                                       ILabel (BranchTrue tag),
+                                       IMov (Reg EAX) (HexConst 0xffffffff),
+                                       ILabel (BranchDone tag)]
                             IsBool -> genCheck ++ 
-                                      [IJe (DynamicErr (TypeError TBoolean))]
+                                      [IJne (BranchTrue tag),
+                                       IMov (Reg EAX) (HexConst 0x7fffffff),
+                                       IJmp (BranchDone tag),
+                                       ILabel (BranchTrue tag),
+                                       IMov (Reg EAX) (HexConst 0xffffffff),
+                                       ILabel (BranchDone tag)]
+                                      --[IJne (Builtin ("printNotBool"))]
     errorChecking       = genCheck ++
                           [IJne (DynamicErr (TypeError TNumber))]
     genCheck            = [IMov (Reg EBX) (Reg EAX),
                            IAnd (Reg EBX) (HexConst (0x00000001)),
                            ICmp (Reg EBX) (Const 0)]
+    tag                 = snd(l)
                      
-
 
 -- | TBD: Implement code for `Prim2` with appropriate type checking
 compilePrim2 :: Tag -> Env -> Prim2 -> IExp -> IExp -> [Instruction]
-compilePrim2 l env op = error "TBD:compilePrim2"
+--compilePrim2 l env op =  
+compilePrim2 l env Plus v1 v2    = assertNum env v1 ++
+                                   assertNum env v2 ++
+                                   compileEnv env v1 ++
+                                   [IAdd (Reg EAX) (immArg env v2),
+                                   IJo (DynamicErr (ArithOverflow))]
+compilePrim2 l env Minus v1 v2   = assertNum env v1 ++
+                                   assertNum env v2 ++
+                                   compileEnv env v1 ++
+                                   [ISub (Reg EAX) (immArg env v2),
+                                   IJo (DynamicErr (ArithOverflow))]
+compilePrim2 l env Times v1 v2   = assertNum env v1 ++
+                                   assertNum env v2 ++
+                                   compileEnv env v1 ++
+                                   [IMul (Reg EAX) (immArg env v2),
+                                   IJo (DynamicErr (ArithOverflow)),
+                                   ISar (Reg EAX) (Const 1)]
+compilePrim2 l env Less v1 v2    = assertNum env v1 ++
+                                   assertNum env v2 ++
+                                   compileEnv env v1 ++
+                                   [ICmp (Reg EAX) (immArg env v2),
+                                   IJl (BranchTrue tag1), -- if v1 < v2, put true
+                                   IMov (Reg EAX) (HexConst 0x7fffffff),
+                                   IJmp (BranchDone tag1),
+                                   ILabel (BranchTrue tag1),
+                                   IMov (Reg EAX) (HexConst 0xffffffff),
+                                   ILabel (BranchDone tag1)] 
+  where
+    tag1 = snd(l)
+compilePrim2 l env Greater v1 v2 = assertNum env v1 ++
+                                   assertNum env v2 ++
+                                   compileEnv env v1 ++
+                                   [ICmp (Reg EAX) (immArg env v2),
+                                   IJg (BranchTrue tag1), -- if v1 > v2, put true
+                                   IMov (Reg EAX) (HexConst 0x7fffffff),
+                                   IJmp (BranchDone tag1),
+                                   ILabel (BranchTrue tag1),
+                                   IMov (Reg EAX) (HexConst 0xffffffff),
+                                   ILabel (BranchDone tag1)] 
+  where
+    tag1 = snd(l)
+compilePrim2 l env Equal v1 v2   = assertNum env v1 ++
+                                   assertNum env v2 ++
+                                   compileEnv env v1 ++
+                                   [ICmp (Reg EAX) (immArg env v2),
+                                   IJe (BranchTrue tag1), -- if v1 == v2, put true
+                                   IMov (Reg EAX) (HexConst 0x7fffffff),
+                                   IJmp (BranchDone tag1),
+                                   ILabel (BranchTrue tag1),
+                                   IMov (Reg EAX) (HexConst 0xffffffff),
+                                   ILabel (BranchDone tag1)] 
+  where
+    tag1          = snd(l)
+
+
+
+assertNum :: Env -> IExp -> [Instruction]
+assertNum env v = [ IMov (Reg EAX) (immArg env v)
+                  , IMov (Reg EBX) (Reg EAX)
+                  , IAnd (Reg EBX) (HexConst 0x00000001)
+                  , ICmp (Reg EBX) (Const 0)
+                  , IJne (DynamicErr (TypeError TNumber))
+                  ]
+
+-- assertBool assumes you already evaluated the expression
+-- and put it into Reg EAX
+assertBool :: Env -> IExp -> [Instruction]
+assertBool env v = [ IMov (Reg EBX) (Reg EAX)
+                   , IAnd (Reg EBX) (HexConst 0x00000001)
+                   , ICmp (Reg EBX) (Const 0)
+                   , IJe (DynamicErr (TypeError TBoolean))
+                   ]
 
 -- | TBD: Implement code for `If` with appropriate type checking
 compileIf :: Tag -> Env -> IExp -> AExp -> AExp -> [Instruction]
-compileIf l env v e1 e2 = error "TBD:compileIf"
-
+compileIf l env v e1 e2 = compileEnv env v ++  -- move it to EAX
+                          assertBool env v ++  -- compare it to a boolean
+                          [ICmp (Reg EAX) (HexConst 0xffffffff),
+                          IJe (BranchTrue tag1)] ++ -- do the if body if it's true
+                          compileEnv env e2 ++   -- do the else statement here
+                          [IJmp (BranchDone tag1),
+                          ILabel (BranchTrue tag1)] ++
+                          compileEnv env e1 ++
+                          [ILabel (BranchDone tag1)]
+  where
+    tag1 = snd(l)
 stackVar :: Int -> Arg
 stackVar i = RegOffset (-4 * i) EBP
 

@@ -1,3 +1,13 @@
 [
-    
+  {
+    "name"   : "overflow",
+    "code"   : "file",
+    "result" : { "failure": "arithmetic overflow" }
+  },
+ {
+    "name"   : "typeCheck",
+    "code"   : "file",
+    "result" : { "failure": "expected a number" }
+  }
+
 ]

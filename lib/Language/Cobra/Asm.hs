@@ -21,6 +21,7 @@ header :: Text
 header = unlines
   [ "section .text"
   , "extern print"
+  , "extern error"
   , "global our_code_starts_here"
   , "our_code_starts_here:"
   ]
@@ -34,8 +35,13 @@ postlude = [ILabel (DynamicErr (TypeError TNumber)),
            ICall (Builtin "error")]
         ++ [ILabel (DynamicErr (TypeError TBoolean)),
            IPush (Reg EAX),
-           IPush (Const 1)
+           IPush (Const 1),
            ICall (Builtin "error")]
+        ++ [ILabel (DynamicErr (ArithOverflow)),
+           IPush (Reg EAX),
+           IPush (Const 2),
+           ICall (Builtin "error")]
+
 
 --------------------------------------------------------------------------------
 instrAsm :: Instruction -> Text
